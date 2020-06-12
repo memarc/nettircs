@@ -16,17 +16,8 @@
 static FILE * fp;
 
 void
-open_md(int p, const char * sub)
+open_md(const char * path)
 {
-	char subpath[255];
-	char path[255];
-
-	if (strcmp(sub, "") == 0)
-		sprintf(path, doc_path, pages[p]);
-	else {
-		sprintf(subpath, "%s/%s", pages[p], sub);
-		sprintf(path, doc_path, subpath);
-	}
 	fp = fopen(path, "r");
 }
 
