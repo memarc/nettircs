@@ -5,7 +5,6 @@
 #include <stdint.h> /* int64_t */
 #include <unistd.h> /* pledge(2) */
 #include <string.h> /* strlcpy */
-#include <sys/stat.h> /* mkdir(2) */
 #include <stdio.h> /* sprintf */
 #include <dirent.h> /* opendir */
 
@@ -144,7 +143,7 @@ main(void)
 	struct dirent *de;
 	DIR *dir;
 
-	// pledges required for kcgi init and cpath for mkdir
+	// pledges required for kcgi init
 	if (pledge("stdio proc rpath cpath", NULL) == -1)
 		err(EXIT_FAILURE, NULL);
 	// initialize (parse?) khttp
@@ -152,8 +151,8 @@ main(void)
 		pages, PAGE__MAX, PAGE_INDEX) != KCGI_OK)
 		err(EXIT_FAILURE, NULL);
 
-	// rpath to open proper file for the page and cpath for mkdir
-	if (pledge("stdio rpath cpath", NULL) == -1)
+	// rpath to open proper file for the page
+	if (pledge("stdio rpath", NULL) == -1)
 		err(EXIT_FAILURE, NULL);
 
 	// make user directory if it doesn't exist
@@ -161,8 +160,6 @@ main(void)
 		memset(ppath, '\0', sizeof(ppath));
 		strlcat(ppath, project_path, sizeof(ppath));
 		strlcat(ppath, pages[req.page], sizeof(ppath));
-		if (access(ppath, F_OK) == -1)
-			mkdir(ppath, 0666);
 	}
 
 	// rpath is necessary for reading RCS directories
@@ -193,8 +190,7 @@ main(void)
 			open_md(mdpath);
 			if (read_md(&r) != 0)
 				senderror(&r, KHTTP_404);
-		}
-		if (req.page != PAGE_INDEX) {
+		} else {
 			khtml_attr(&r, KELEM_UL,
 				KATTR_ID, "project_list", KATTR__MAX);
 
