@@ -232,6 +232,18 @@ main(void)
 							KATTR_HREF, filepath,
 							KATTR__MAX);
 						khtml_puts(&r, de->d_name);
+
+						sprintf(buf, doc_path, filepath);
+						khtml_elem(&r, KELEM_BR);
+						if (access(buf, F_OK) != -1) {
+							fp = fopen(buf, "r");
+							khtml_attr(&r, KELEM_DIV,
+								KATTR_CLASS, "proj_desc",
+								KATTR__MAX);
+							read_md(&r, fp);
+							khtml_closeelem(&r, 1);
+							fclose(fp);
+						}
 						khtml_closeelem(&r, 1);
 					}
 				}
@@ -349,7 +361,16 @@ main(void)
 					if (fp == NULL)
 						khtml_printf(&r, "Couldn't open \"%s\"", filepath);
 					else {
+						khtml_attr(&r, KELEM_H3,
+							KATTR_CLASS, "readmetitle",
+							KATTR__MAX);
+						khtml_puts(&r, "README.md:");
+						khtml_closeelem(&r, 1);
+						khtml_attr(&r, KELEM_DIV,
+							KATTR_CLASS, "readme",
+							KATTR__MAX);
 						read_md(&r, fp);
+						khtml_closeelem(&r, 1);
 						fclose(fp);
 					} 
 				}
