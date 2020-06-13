@@ -212,9 +212,10 @@ main(void)
 		if (req.page == PAGE_INDEX ||
 			req.path == NULL || req.path[0] == '\0') {
 			sprintf(mdpath, doc_path, pages[req.page]);
-			open_md(mdpath);
-			if (read_md(&r) != 0)
+			fp = fopen(mdpath, "r");
+			if (read_md(&r, fp) != 0)
 				senderror(&r, KHTTP_404);
+			fclose(fp);
 			// list projects on user pages
 			if (req.page != PAGE_INDEX) {
 				dir = opendir(ppath);
@@ -254,6 +255,13 @@ main(void)
 			}
 		} else {
 			send_ppath(&r, req.page, req.path, "");
+
+			sprintf(filepath, "/projects/%s/%s/%s.rcs.tar.gz",
+				pages[req.page], req.path, req.path);
+			khtml_attr(&r, KELEM_A, KATTR_HREF, filepath, KATTR__MAX);
+			khtml_ncr(&r, 0x2193); /* darr */
+			khtml_printf(&r, " %s.rcs.tar.gz", req.path);
+			khtml_closeelem(&r, 1); /* a */
 
 			sprintf(ppath, "%s/%s/RCS", ppath, req.path);
 
@@ -331,10 +339,19 @@ main(void)
 							hr, min, sec);
 						fclose(fp);
 						khtml_closeelem(&r, 3);
-						khtml_attr(&r, KELEM_P, 
-							KATTR_CLASS, "small",
-							KATTR__MAX);
 					}
+				}
+				khtml_closeelem(&r, 1); /* table */
+				sprintf(filepath, "%s%s/%s/README.md",
+					project_path, pages[req.page], req.path);
+				if (access(filepath, F_OK) != -1) {
+					fp = fopen(filepath, "r");
+					if (fp == NULL)
+						khtml_printf(&r, "Couldn't open \"%s\"", filepath);
+					else {
+						read_md(&r, fp);
+						fclose(fp);
+					} 
 				}
 			}
 		}
