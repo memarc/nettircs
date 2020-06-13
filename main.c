@@ -7,6 +7,7 @@
 #include <string.h> /* strlcpy */
 #include <stdio.h> /* sprintf */
 #include <dirent.h> /* opendir */
+#include <sys/stat.h> /* stat */
 
 #include <kcgi.h>
 #include <kcgihtml.h>
@@ -15,16 +16,12 @@
 #include "config.h"
 
 enum	key {
-	KEY_PROJECT,
-	KEY_NAME,
-	KEY_COMMENT,
+	KEY_FILE,
 	KEY__MAX
 };
 
 static const struct kvalid keys[KEY__MAX] = {
-	{ kvalid_stringne, "project" },
-	{ kvalid_stringne, "name" },
-	{ kvalid_stringne, "comment" },
+	{ kvalid_stringne, "file" },
 };
 
 
@@ -147,6 +144,7 @@ main(void)
 	char filepath[255];
 	char buf[255];
 	char date[21];
+	int yr, mo, day, hr, min, sec;
 	int b;
 	FILE *fp;
 
@@ -159,7 +157,7 @@ main(void)
 		err(EXIT_FAILURE, NULL);
 
 	// rpath to open proper file for the page, proc for popen
-	if (pledge("stdio rpath", NULL) == -1)
+	if (pledge("stdio proc rpath", NULL) == -1)
 		err(EXIT_FAILURE, NULL);
 
 	if (req.page != PAGE_INDEX) {
@@ -182,7 +180,6 @@ main(void)
 		}
 	} else {
 		resp_open(&req, KHTTP_200);
-
 		khtml_open(&r, &req, 0);
 
 		sendheader(&r, req.page);
@@ -212,87 +209,115 @@ main(void)
 					}
 				}
 			}
+		} else if (req.fieldmap[KEY_FILE] != NULL) {
+			strlcpy(buf, req.fieldmap[KEY_FILE]->parsed.s, sizeof(buf));
+			khtml_elem(&r, KELEM_H3);
+			khtml_printf(&r, "%s/%s?file=%s",
+				pages[req.page], req.path, buf);
+			khtml_closeelem(&r, 1);
+			sprintf(filepath, "%s/%s/RCS/%s", ppath, req.path, buf);
+			if (access(filepath, F_OK) != -1) {
+				fp = fopen(filepath, "r");
+				if (fp == NULL)
+					khtml_printf(&r, "Couldn't open \"%s\"", filepath);
+				else {
+					khtml_elem(&r, KELEM_CODE);
+					khtml_elem(&r, KELEM_PRE);
+					while (fgets(buf, sizeof(buf), fp))
+						khtml_puts(&r, buf);
+					khtml_closeelem(&r, 2);
+					fclose(fp);
+				} 
+			}
 		} else {
 			khtml_elem(&r, KELEM_H3);
-			khtml_printf(&r, "%s/%s/",
+			khtml_printf(&r, "%s/%s",
 				pages[req.page], req.path);
 			khtml_closeelem(&r, 1);
 
-			strlcat(ppath, "/", sizeof(ppath));
-			strlcat(ppath, req.path, sizeof(ppath));
-			strlcat(ppath, "/RCS", sizeof(ppath));
-			khtml_attr(&r, KELEM_TABLE,
-				KATTR_ID, "project_list", KATTR__MAX);
-			khtml_elem(&r, KELEM_THEAD);
-			khtml_elem(&r, KELEM_TH);
-			khtml_puts(&r, "File");
-			khtml_closeelem(&r, 1);
-			khtml_elem(&r, KELEM_TH);
-			khtml_puts(&r, "Revision");
-			khtml_closeelem(&r, 1);
-			khtml_elem(&r, KELEM_TH);
-			khtml_puts(&r, "Submitter");
-			khtml_closeelem(&r, 1);
-			khtml_elem(&r, KELEM_TH);
-			khtml_puts(&r, "Date");
-			khtml_closeelem(&r, 2);
+			sprintf(ppath, "%s/%s/RCS", ppath, req.path);
 
 			dir = opendir(ppath);
-			if (dir == NULL) {
-				khtml_elem(&r, KELEM_TR);
-				khtml_elem(&r, KELEM_TD);
-				khtml_printf(&r,
-					"Couldn't open \"%s\"", ppath);
-			}
-			while ((de = readdir(dir)) != NULL) {
-				if (de->d_name[0] != '.') {
-					khtml_elem(&r, KELEM_TR);
-					khtml_elem(&r, KELEM_TD);
-					khtml_puts(&r, de->d_name);
-					khtml_closeelem(&r, 1);
-					khtml_elem(&r, KELEM_TD);
+			if (dir == NULL)
+				khtml_printf(&r, "Error: \"%s\" does not exist", ppath);
+			else {
+				khtml_attr(&r, KELEM_TABLE,
+					KATTR_ID, "project_list", KATTR__MAX);
+				khtml_elem(&r, KELEM_THEAD);
+				khtml_elem(&r, KELEM_TH);
+				khtml_puts(&r, "File");
+				khtml_closeelem(&r, 1);
+				khtml_elem(&r, KELEM_TH);
+				khtml_puts(&r, "Revision");
+				khtml_closeelem(&r, 1);
+				khtml_elem(&r, KELEM_TH);
+				khtml_puts(&r, "Submitter");
+				khtml_closeelem(&r, 1);
+				khtml_elem(&r, KELEM_TH);
+				khtml_puts(&r, "Date");
+				khtml_closeelem(&r, 2);
+				while ((de = readdir(dir)) != NULL) {
+					if (de->d_name[0] != '.') {
+						khtml_elem(&r, KELEM_TR);
+						khtml_elem(&r, KELEM_TD);
+						sprintf(filepath, "?file=%s", de->d_name);
+						khtml_attr(&r, KELEM_A,
+							KATTR_HREF, filepath,
+							KATTR__MAX);
+						khtml_puts(&r, de->d_name);
+						khtml_closeelem(&r, 2);
+						khtml_elem(&r, KELEM_TD);
 
-					sprintf(filepath, "%s/%s",
-						ppath, de->d_name);
-					fp = fopen(filepath, "r");
-					memset(buf, '\0', sizeof(buf));
-					fgets(buf, sizeof(buf), fp);
-					for (b = 0; b < 255; b++)
-						if (buf[b] == ';') {
-							buf[b] = '\0';
-							break;
-						}
-					khtml_puts(&r, buf);
-					khtml_closeelem(&r, 1);
-					khtml_elem(&r, KELEM_TD);
-					while (strcmp(buf, "\n") != 0)
+						sprintf(filepath, "%s/%s",
+							ppath, de->d_name);
+						fp = fopen(filepath, "r");
+						memset(buf, '\0', sizeof(buf));
 						fgets(buf, sizeof(buf), fp);
-					fscanf(fp, " ");
-					fgets(buf, sizeof(buf), fp);
-					fscanf(fp, "date %s;", date);
-					fscanf(fp, " author %s;", buf);
-					for (b = 0; b <= 21; b++)
-						if (date[b] == ';') {
-							date[b] = '\0';
-							break;
-						}
-					for (b = 0; b < 255; b++)
-						if (buf[b] == ';') {
-							buf[b] = '\0';
-							break;
-						}
-					khtml_puts(&r, buf);
-					khtml_closeelem(&r, 1);
-					khtml_elem(&r, KELEM_TD);
-					khtml_puts(&r, date);
-					fclose(fp);
-
-
-					khtml_closeelem(&r, 2);
+						for (b = 0; b < 255; b++)
+							if (buf[b] == ';') {
+								buf[b] = '\0';
+								break;
+							}
+						khtml_puts(&r, buf);
+						khtml_closeelem(&r, 1);
+						khtml_elem(&r, KELEM_TD);
+						while (strcmp(buf, "\n") != 0)
+							fgets(buf, sizeof(buf), fp);
+						fscanf(fp, " ");
+						fgets(buf, sizeof(buf), fp);
+						fscanf(fp, "date %d.%d.%d.%d.%d.%d;",
+							&yr, &mo, &day,
+							&hr, &min, &sec);
+						fscanf(fp, " author %s;", buf);
+						for (b = 0; b <= 21; b++)
+							if (date[b] == ';') {
+								date[b] = '\0';
+								break;
+							}
+						for (b = 0; b < 255; b++)
+							if (buf[b] == ';') {
+								buf[b] = '\0';
+								break;
+							}
+						khtml_puts(&r, buf);
+						khtml_closeelem(&r, 1);
+						khtml_elem(&r, KELEM_TD);
+						khtml_printf(&r, "%d-%02d-%02d ",
+							yr, mo, day);
+						khtml_attr(&r, KELEM_SPAN,
+							KATTR_CLASS, "time",
+							KATTR__MAX);
+						khtml_printf(&r, " %02d:%02d.%02d",
+							hr, min, sec);
+						fclose(fp);
+						khtml_closeelem(&r, 3);
+						khtml_attr(&r, KELEM_P, 
+							KATTR_CLASS, "small",
+							KATTR__MAX);
+					}
 				}
 			}
 		}
-
 		khtml_close(&r); /* all scopes */
 	}
 
