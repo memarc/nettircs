@@ -3,7 +3,6 @@
 #include <string.h> /* strcmp */
 #include <stdint.h> /* int64_t */
 #include <stdlib.h> /* free */
-#include <stdio.h>
 
 #include <kcgi.h>
 #include <kcgihtml.h>
@@ -11,18 +10,8 @@
 #include "global.h"
 #include "config.h"
 
-// Actually not markdown entirely.
-// Just a few pieces of it for simplicity
-static FILE * fp;
-
-void
-open_md(const char * path)
-{
-	fp = fopen(path, "r");
-}
-
-void
-get_md_link(char * buf, char * url, char * title)
+static void
+get_md_link(char * buf, char * url, char * title, FILE * fp)
 {
 	char c;
 	int n = 0;
@@ -68,7 +57,7 @@ get_md_link(char * buf, char * url, char * title)
 }
 
 int
-read_md(struct khtmlreq *r)
+read_md(struct khtmlreq *r, FILE * fp)
 {
 	char c;
 	char buf[255];
@@ -184,7 +173,7 @@ read_md(struct khtmlreq *r)
 			memset(url, '\0', sizeof(url));
 			memset(buf, '\0', sizeof(buf));
 			memset(title, '\0', sizeof(title));
-			get_md_link(buf, url, title);
+			get_md_link(buf, url, title, fp);
 			khtml_attr(r, KELEM_A,
 				KATTR_HREF, url,
 				KATTR_TITLE, title,
@@ -201,7 +190,7 @@ read_md(struct khtmlreq *r)
 			memset(url, '\0', sizeof(url));
 			memset(buf, '\0', sizeof(buf));
 			memset(title, '\0', sizeof(title));
-			get_md_link(buf, url, title);
+			get_md_link(buf, url, title, fp);
 			khtml_attr(r, KELEM_A,
 				KATTR_HREF, url,
 				KATTR_TITLE, title,
@@ -301,6 +290,5 @@ read_md(struct khtmlreq *r)
 	}
 	if (p || ul || ol)
 		khtml_closeelem(r, 1);
-	fclose(fp);
 	return 0;
 }

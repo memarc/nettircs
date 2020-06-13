@@ -1,8 +1,9 @@
 #ifndef GLOBAL_H
 #define GLOBAL_H
 
-void open_md(const char *);
-int read_md(struct khtmlreq *);
+#include <stdio.h>
+
+int read_md(struct khtmlreq *, FILE *);
 void sendpng(struct khtmlreq *,
 	const char *,
 	const char *,
