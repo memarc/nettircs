@@ -7,6 +7,7 @@ then
 fi
 
 PROJECT_PATH=/var/www/htdocs/nettircs/projects/
+[ -e $PROJECT_PATH/$2/$3 ] && mkdir -p $PROJECT_PATH/$2/$3
 rm -rf $PROJECT_PATH/$2/$3/RCS
 cp -r $1 $PROJECT_PATH/$2/$3/RCS
 cd $PROJECT_PATH/$2/$3
