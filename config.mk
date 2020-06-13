@@ -7,8 +7,7 @@ MANPREFIX = ${PREFIX}/share/man
 
 # includes and libs
 INCS = `pkg-config --cflags kcgi`
-LIBS = -static `pkg-config --static --libs kcgi-html` \
-	-lksql -lsqlite3 -lpthread -lm
+LIBS = -static `pkg-config --static --libs kcgi-html`
 
 # flags
 CFLAGS   =  -Wall -Wno-deprecated-declarations -Os ${INCS}
