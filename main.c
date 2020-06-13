@@ -361,19 +361,16 @@ main(void)
 					if (fp == NULL)
 						khtml_printf(&r, "Couldn't open \"%s\"", filepath);
 					else {
-						khtml_attr(&r, KELEM_H3,
-							KATTR_CLASS, "readmetitle",
-							KATTR__MAX);
+						khtml_attr(&r, KELEM_H3, KATTR_CLASS, "readmetitle", KATTR__MAX);
 						khtml_puts(&r, "README.md:");
 						khtml_closeelem(&r, 1);
-						khtml_attr(&r, KELEM_DIV,
-							KATTR_CLASS, "readme",
-							KATTR__MAX);
+						khtml_attr(&r, KELEM_DIV, KATTR_CLASS, "readme", KATTR__MAX);
 						read_md(&r, fp);
-						khtml_closeelem(&r, 1);
+						khtml_closeelem(&r, 3);
 						fclose(fp);
 					} 
 				}
+
 				khtml_elem(&r, KELEM_P);
 				khtml_puts(&r, "Assuming you own this "
 					"reopsitory, to upload your "
