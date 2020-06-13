@@ -39,3 +39,4 @@ types {
 	include "/usr/share/misc/mime.types"
 }
 `
+
