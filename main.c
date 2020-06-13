@@ -374,6 +374,18 @@ main(void)
 						fclose(fp);
 					} 
 				}
+				khtml_elem(&r, KELEM_P);
+				khtml_puts(&r, "Assuming you own this "
+					"reopsitory, to upload your "
+					"RCS directory, type:");
+				khtml_closeelem(&r, 1);
+				khtml_elem(&r, KELEM_CODE);
+				khtml_elem(&r, KELEM_PRE);
+				khtml_puts(&r, "scp -r RCS "
+					"rcs.yksinotso.org:/tmp/RCS\n");
+				khtml_printf(&r, "ssh rcs.yksinotso.org"
+					" nettircs.sh /tmp/RCS %s %s",
+					pages[req.page], req.path);
 			}
 		}
 		khtml_close(&r); /* all scopes */
