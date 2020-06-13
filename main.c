@@ -140,8 +140,15 @@ main(void)
 	enum khttp er;
 	char mdpath[255];
 	char ppath[255];
+	// read directory
 	struct dirent *de;
 	DIR *dir;
+	// read file
+	char filepath[255];
+	char buf[255];
+	char date[21];
+	int b;
+	FILE *fp;
 
 	// pledges required for kcgi init
 	if (pledge("stdio proc rpath cpath", NULL) == -1)
@@ -151,20 +158,15 @@ main(void)
 		pages, PAGE__MAX, PAGE_INDEX) != KCGI_OK)
 		err(EXIT_FAILURE, NULL);
 
-	// rpath to open proper file for the page
+	// rpath to open proper file for the page, proc for popen
 	if (pledge("stdio rpath", NULL) == -1)
 		err(EXIT_FAILURE, NULL);
 
-	// make user directory if it doesn't exist
 	if (req.page != PAGE_INDEX) {
 		memset(ppath, '\0', sizeof(ppath));
-		strlcat(ppath, project_path, sizeof(ppath));
+		strlcpy(ppath, project_path, sizeof(ppath));
 		strlcat(ppath, pages[req.page], sizeof(ppath));
 	}
-
-	// rpath is necessary for reading RCS directories
-	if (pledge("stdio rpath", NULL) == -1)
-		err(EXIT_FAILURE, NULL);
 
 	/*
 	 * Accept only GET
@@ -190,22 +192,103 @@ main(void)
 			open_md(mdpath);
 			if (read_md(&r) != 0)
 				senderror(&r, KHTTP_404);
+			// list projects on user pages
+			if (req.page != PAGE_INDEX) {
+				dir = opendir(ppath);
+				if (dir == NULL)
+					khtml_printf(&r, "Couldn't open " "\"%s\"", ppath);
+				khtml_attr(&r, KELEM_DIV,
+					KATTR_CLASS, "project_list",
+					KATTR__MAX);
+				while ((de = readdir(dir)) != NULL) {
+					if (de->d_name[0] != '.') {
+						sprintf(filepath, "%s/%s",
+							pages[req.page], de->d_name);
+						khtml_attr(&r, KELEM_A,
+							KATTR_HREF, filepath,
+							KATTR__MAX);
+						khtml_puts(&r, de->d_name);
+						khtml_closeelem(&r, 1);
+					}
+				}
+			}
 		} else {
-			khtml_attr(&r, KELEM_UL,
+			khtml_elem(&r, KELEM_H3);
+			khtml_printf(&r, "%s/%s/",
+				pages[req.page], req.path);
+			khtml_closeelem(&r, 1);
+
+			strlcat(ppath, "/", sizeof(ppath));
+			strlcat(ppath, req.path, sizeof(ppath));
+			strlcat(ppath, "/RCS", sizeof(ppath));
+			khtml_attr(&r, KELEM_TABLE,
 				KATTR_ID, "project_list", KATTR__MAX);
+			khtml_elem(&r, KELEM_THEAD);
+			khtml_elem(&r, KELEM_TH);
+			khtml_puts(&r, "File");
+			khtml_closeelem(&r, 1);
+			khtml_elem(&r, KELEM_TH);
+			khtml_puts(&r, "Revision");
+			khtml_closeelem(&r, 1);
+			khtml_elem(&r, KELEM_TH);
+			khtml_puts(&r, "Submitter");
+			khtml_closeelem(&r, 1);
+			khtml_elem(&r, KELEM_TH);
+			khtml_puts(&r, "Date");
+			khtml_closeelem(&r, 2);
 
 			dir = opendir(ppath);
 			if (dir == NULL) {
-				khtml_elem(&r, KELEM_LI);
+				khtml_elem(&r, KELEM_TR);
+				khtml_elem(&r, KELEM_TD);
 				khtml_printf(&r,
-					"Couldn't open \"%s\"",
-					ppath);
+					"Couldn't open \"%s\"", ppath);
 			}
 			while ((de = readdir(dir)) != NULL) {
 				if (de->d_name[0] != '.') {
-					khtml_elem(&r, KELEM_LI);
+					khtml_elem(&r, KELEM_TR);
+					khtml_elem(&r, KELEM_TD);
 					khtml_puts(&r, de->d_name);
 					khtml_closeelem(&r, 1);
+					khtml_elem(&r, KELEM_TD);
+
+					sprintf(filepath, "%s/%s",
+						ppath, de->d_name);
+					fp = fopen(filepath, "r");
+					memset(buf, '\0', sizeof(buf));
+					fgets(buf, sizeof(buf), fp);
+					for (b = 0; b < 255; b++)
+						if (buf[b] == ';') {
+							buf[b] = '\0';
+							break;
+						}
+					khtml_puts(&r, buf);
+					khtml_closeelem(&r, 1);
+					khtml_elem(&r, KELEM_TD);
+					while (strcmp(buf, "\n") != 0)
+						fgets(buf, sizeof(buf), fp);
+					fscanf(fp, " ");
+					fgets(buf, sizeof(buf), fp);
+					fscanf(fp, "date %s;", date);
+					fscanf(fp, " author %s;", buf);
+					for (b = 0; b <= 21; b++)
+						if (date[b] == ';') {
+							date[b] = '\0';
+							break;
+						}
+					for (b = 0; b < 255; b++)
+						if (buf[b] == ';') {
+							buf[b] = '\0';
+							break;
+						}
+					khtml_puts(&r, buf);
+					khtml_closeelem(&r, 1);
+					khtml_elem(&r, KELEM_TD);
+					khtml_puts(&r, date);
+					fclose(fp);
+
+
+					khtml_closeelem(&r, 2);
 				}
 			}
 		}
