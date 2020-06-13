@@ -129,6 +129,32 @@ sanitise(const struct kreq *r)
 	return KHTTP_200;
 }
 
+void
+send_ppath(struct khtmlreq * r, int p, char * proj, char * file)
+{
+	char url[255];
+	khtml_elem(r, KELEM_H3);
+	sprintf(url, "/cgi-bin/%s/%s", cgi_exec, pages[p]);
+	khtml_attr(r, KELEM_A, KATTR_HREF, url, KATTR__MAX);
+	khtml_puts(r, pages[p]);
+	khtml_closeelem(r, 1); /* a */
+	khtml_puts(r, "/");
+	strlcat(url, "/", sizeof(url));
+	strlcat(url, proj, sizeof(url));
+	khtml_attr(r, KELEM_A, KATTR_HREF, url, KATTR__MAX);
+	khtml_puts(r, proj);
+	khtml_closeelem(r, 1); /* a */
+	if (strcmp(file, "") != 0) {
+		strlcat(url, "?file=", sizeof(url));
+		strlcat(url, file, sizeof(url));
+		khtml_puts(r, "?file=");
+		khtml_attr(r, KELEM_A, KATTR_HREF, url, KATTR__MAX);
+		khtml_puts(r, file);
+		khtml_closeelem(r, 1); /* a */
+	}
+	khtml_closeelem(r, 1); /* h3 */
+}
+
 int
 main(void)
 {
@@ -211,10 +237,7 @@ main(void)
 			}
 		} else if (req.fieldmap[KEY_FILE] != NULL) {
 			strlcpy(buf, req.fieldmap[KEY_FILE]->parsed.s, sizeof(buf));
-			khtml_elem(&r, KELEM_H3);
-			khtml_printf(&r, "%s/%s?file=%s",
-				pages[req.page], req.path, buf);
-			khtml_closeelem(&r, 1);
+			send_ppath(&r, req.page, req.path, buf);
 			sprintf(filepath, "%s/%s/RCS/%s", ppath, req.path, buf);
 			if (access(filepath, F_OK) != -1) {
 				fp = fopen(filepath, "r");
@@ -230,10 +253,7 @@ main(void)
 				} 
 			}
 		} else {
-			khtml_elem(&r, KELEM_H3);
-			khtml_printf(&r, "%s/%s",
-				pages[req.page], req.path);
-			khtml_closeelem(&r, 1);
+			send_ppath(&r, req.page, req.path, "");
 
 			sprintf(ppath, "%s/%s/RCS", ppath, req.path);
 
