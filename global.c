@@ -109,22 +109,22 @@ read_md(struct khtmlreq *r)
 			}
 			switch (n) {
 			case 0:
-				khtml_elem(r, KELEM_H6);
+				khtml_elem(r, KELEM_H1);
 				break;
 			case 1:
-				khtml_elem(r, KELEM_H5);
-				break;
-			case 2:
-				khtml_elem(r, KELEM_H4);
-				break;
-			case 3:
-				khtml_elem(r, KELEM_H3);
-				break;
-			case 4:
 				khtml_elem(r, KELEM_H2);
 				break;
+			case 2:
+				khtml_elem(r, KELEM_H3);
+				break;
+			case 3:
+				khtml_elem(r, KELEM_H4);
+				break;
+			case 4:
+				khtml_elem(r, KELEM_H5);
+				break;
 			case 5:
-				khtml_elem(r, KELEM_H1);
+				khtml_elem(r, KELEM_H6);
 				break;
 			}
 			while (c != '\n') {
