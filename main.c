@@ -381,7 +381,7 @@ main(void)
 				khtml_puts(&r, "scp -r RCS "
 					"rcs.yksinotso.org:/tmp/RCS\n");
 				khtml_printf(&r, "ssh rcs.yksinotso.org"
-					" nettircs.sh /tmp/RCS %s %s",
+					" ~/bin/nettircs.sh /tmp/RCS %s %s",
 					pages[req.page], req.path);
 			}
 		}
