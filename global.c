@@ -244,6 +244,8 @@ read_md(struct khtmlreq *r, FILE * fp)
 				c = getc(fp);
 			}
 
+			if (p)
+				khtml_closeelem(r, 1); /* p */
 			p = 0;
 			khtml_elem(r, KELEM_PRE);
 			khtml_elem(r, KELEM_CODE);
