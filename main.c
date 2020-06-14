@@ -366,7 +366,7 @@ main(void)
 						khtml_closeelem(&r, 1);
 						khtml_attr(&r, KELEM_DIV, KATTR_CLASS, "readme", KATTR__MAX);
 						read_md(&r, fp);
-						khtml_closeelem(&r, 3);
+						khtml_closeelem(&r, 1);
 						fclose(fp);
 					} 
 				}
