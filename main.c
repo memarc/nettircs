@@ -231,19 +231,19 @@ main(void)
 						khtml_attr(&r, KELEM_A,
 							KATTR_HREF, filepath,
 							KATTR__MAX);
+						khtml_elem(&r, KELEM_DIV);
 						khtml_puts(&r, de->d_name);
+						khtml_closeelem(&r, 1);
 
 						sprintf(buf, doc_path, filepath);
 						khtml_elem(&r, KELEM_BR);
+						khtml_elem(&r, KELEM_DIV);
 						if (access(buf, F_OK) != -1) {
 							fp = fopen(buf, "r");
-							khtml_attr(&r, KELEM_DIV,
-								KATTR_CLASS, "proj_desc",
-								KATTR__MAX);
 							read_md(&r, fp);
-							khtml_closeelem(&r, 1);
 							fclose(fp);
-						}
+						} else
+							khtml_puts(&r, "No description found");
 						khtml_closeelem(&r, 1);
 					}
 				}
