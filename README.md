@@ -41,5 +41,5 @@ types {
 `
 
 Finally, copy the script (*nettircs.sh*) to a place that will be easy to execute.
-I leave mine in *$HOME/bin/*
+I leave mine in $HOME/bin/
 
