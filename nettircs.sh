@@ -13,5 +13,4 @@ cp -r $1 $PROJECT_PATH/$2/$3/RCS
 rm -fr $1
 cd $PROJECT_PATH/$2/$3
 rcs -u RCS/*
-[ -e "RCS/README.md,v" ] && co README.md
 tar -czf $3.rcs.tar.gz RCS
