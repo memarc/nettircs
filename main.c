@@ -172,10 +172,12 @@ main(void)
 	char date[21];
 	int yr, mo, day, hr, min, sec;
 	int b;
+	char c;
 	FILE *fp;
+	char cmd[512];
 
 	// pledges required for kcgi init
-	if (pledge("stdio proc rpath cpath", NULL) == -1)
+	if (pledge("stdio exec proc rpath cpath", NULL) == -1)
 		err(EXIT_FAILURE, NULL);
 	// initialize (parse?) khttp
 	if (khttp_parse(&req, keys, KEY__MAX,
@@ -183,7 +185,7 @@ main(void)
 		err(EXIT_FAILURE, NULL);
 
 	// rpath to open proper file for the page, proc for popen
-	if (pledge("stdio proc rpath", NULL) == -1)
+	if (pledge("stdio exec proc rpath", NULL) == -1)
 		err(EXIT_FAILURE, NULL);
 
 	if (req.page != PAGE_INDEX) {
@@ -253,17 +255,89 @@ main(void)
 			send_ppath(&r, req.page, req.path, buf);
 			sprintf(filepath, "%s/%s/RCS/%s", ppath, req.path, buf);
 			if (access(filepath, F_OK) != -1) {
-				fp = fopen(filepath, "r");
+				sprintf(cmd, "rlog -r: %s", filepath);
+				fp = popen(cmd, "r");
 				if (fp == NULL)
 					khtml_printf(&r, "Couldn't open \"%s\"", filepath);
 				else {
-					khtml_elem(&r, KELEM_CODE);
-					khtml_elem(&r, KELEM_PRE);
-					while (fgets(buf, sizeof(buf), fp))
-						khtml_puts(&r, buf);
+					while (fgets(buf, sizeof(buf), fp) != NULL)
+						if (buf[0] == '-')
+							break;
+					// print info on each version
+					khtml_elem(&r, KELEM_TABLE);
+					khtml_elem(&r, KELEM_TR);
+					khtml_elem(&r, KELEM_TH);
+					khtml_puts(&r, "Rev");
+					khtml_closeelem(&r, 1);
+					khtml_elem(&r, KELEM_TH);
+					khtml_puts(&r, "Date");
+					khtml_closeelem(&r, 1);
+					khtml_elem(&r, KELEM_TH);
+					khtml_puts(&r, "Submitter");
+					khtml_closeelem(&r, 1);
+					khtml_elem(&r, KELEM_TH);
+					khtml_puts(&r, "Lines");
+					khtml_closeelem(&r, 1);
+					khtml_elem(&r, KELEM_TH);
+					khtml_puts(&r, "Description");
 					khtml_closeelem(&r, 2);
-					fclose(fp);
-				} 
+					while (fscanf(fp, "%s", buf) > 0) {
+						khtml_elem(&r, KELEM_TR);
+						khtml_elem(&r, KELEM_TD);
+						// First line is revision number
+						fscanf(fp, "%s\n", buf);
+						khtml_puts(&r, buf);
+						khtml_closeelem(&r, 1);
+
+						// all these fscanfs remove labels
+						fscanf(fp, "%s", buf);
+						khtml_elem(&r, KELEM_TD);
+						c = getc(fp);
+						while (c != ';') {
+							khtml_putc(&r, c);
+							c = getc(fp);
+						}
+						khtml_closeelem(&r, 1);
+
+						// and reading until the ';' means you get the data
+						// but not the pesky ';'
+						fscanf(fp, "%s", buf);
+						khtml_elem(&r, KELEM_TD);
+						c = getc(fp);
+						while (c != ';') {
+							khtml_putc(&r, c);
+							c = getc(fp);
+						}
+						khtml_closeelem(&r, 1);
+
+						c = getc(fp);
+						while (c != ';')
+							c = getc(fp);
+						khtml_elem(&r, KELEM_TD);
+						c = getc(fp);
+						if (c != '\n') {
+							fscanf(fp, "%s", buf);
+							c = getc(fp);
+							while (c != ';') {
+								khtml_putc(&r, c);
+								c = getc(fp);
+							}
+						}
+						khtml_closeelem(&r, 1);
+
+						khtml_attr(&r, KELEM_TD,
+							KATTR_STYLE, "max-width: 300px;",
+							KATTR__MAX);
+						fgets(buf, sizeof(buf), fp);
+						while (buf[0] != '-' && buf[0] != '=') {
+							khtml_puts(&r, buf);
+							fgets(buf, sizeof(buf), fp);
+						}
+						khtml_closeelem(&r, 2);
+					}
+					khtml_closeelem(&r, 1);
+					pclose(fp);
+				}
 			}
 		} else {
 			send_ppath(&r, req.page, req.path, "");
@@ -281,8 +355,7 @@ main(void)
 			if (dir == NULL)
 				khtml_printf(&r, "Error: \"%s\" does not exist", ppath);
 			else {
-				khtml_attr(&r, KELEM_TABLE,
-					KATTR_ID, "project_list", KATTR__MAX);
+				khtml_elem(&r, KELEM_TABLE);
 				khtml_elem(&r, KELEM_THEAD);
 				khtml_elem(&r, KELEM_TH);
 				khtml_puts(&r, "File");
@@ -354,12 +427,13 @@ main(void)
 					}
 				}
 				khtml_closeelem(&r, 1); /* table */
-				sprintf(filepath, "%s%s/%s/README.md",
+				sprintf(filepath, "%s%s/%s/RCS/README.md,v",
 					project_path, pages[req.page], req.path);
 				if (access(filepath, F_OK) != -1) {
-					fp = fopen(filepath, "r");
+					sprintf(cmd, "/bin/co -p %s", filepath);
+					fp = popen(cmd, "r");
 					if (fp == NULL)
-						khtml_printf(&r, "Couldn't open \"%s\"", filepath);
+						khtml_printf(&r, "Couldn't execute \"%s\"", cmd);
 					else {
 						khtml_attr(&r, KELEM_H3, KATTR_CLASS, "readmetitle", KATTR__MAX);
 						khtml_puts(&r, "README.md:");
@@ -367,7 +441,7 @@ main(void)
 						khtml_attr(&r, KELEM_DIV, KATTR_CLASS, "readme", KATTR__MAX);
 						read_md(&r, fp);
 						khtml_closeelem(&r, 1);
-						fclose(fp);
+						pclose(fp);
 					} 
 				}
 
