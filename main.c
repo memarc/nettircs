@@ -6,13 +6,15 @@
 #include <unistd.h> /* pledge(2) */
 #include <string.h> /* strlcpy */
 #include <stdio.h> /* sprintf */
-#include <dirent.h> /* opendir */
 #include <sys/stat.h> /* stat */
+
+#include <dirent.h> /* opendir */
 
 #include <kcgi.h>
 #include <kcgihtml.h>
 
 #include "global.h"
+#include "page.h"
 #include "config.h"
 
 enum	key {
@@ -78,25 +80,6 @@ sendheader(struct khtmlreq *r, int p)
 		KATTR_ID, "main", KATTR__MAX);
 }
 
-void
-senderror(struct khtmlreq *r, enum khttp http)
-{
-	khtml_elem(r, KELEM_H2);
-	switch (http) {
-	case KHTTP_404:
-		khtml_puts(r, "404, page not found");
-		break;
-	case KHTTP_405:
-		khtml_puts(r, "405, invalid method");
-		break;
-	default:
-		khtml_puts(r, "Something went wrong");
-	}
-
-	khtml_elem(r, KELEM_P);
-	khtml_attr(r, KELEM_IMG,
-		KATTR_SRC, error_path, KATTR__MAX);
-}
 
 void
 resp_open(struct kreq *req, enum khttp http)
@@ -161,9 +144,7 @@ main(void)
 	struct kreq req;
 	struct khtmlreq	r;
 	enum khttp er;
-	char mdpath[255];
 	char ppath[255];
-	// read directory
 	struct dirent *de;
 	DIR *dir;
 	// read file
@@ -212,44 +193,9 @@ main(void)
 
 		sendheader(&r, req.page);
 		if (req.page == PAGE_INDEX ||
-			req.path == NULL || req.path[0] == '\0') {
-			sprintf(mdpath, doc_path, pages[req.page]);
-			fp = fopen(mdpath, "r");
-			if (read_md(&r, fp) != 0)
-				senderror(&r, KHTTP_404);
-			fclose(fp);
-			// list projects on user pages
-			if (req.page != PAGE_INDEX) {
-				dir = opendir(ppath);
-				if (dir == NULL)
-					khtml_printf(&r, "Couldn't open " "\"%s\"", ppath);
-				khtml_attr(&r, KELEM_DIV,
-					KATTR_CLASS, "project_list",
-					KATTR__MAX);
-				while ((de = readdir(dir)) != NULL) {
-					if (de->d_name[0] != '.') {
-						sprintf(filepath, "%s/%s",
-							pages[req.page], de->d_name);
-						khtml_attr(&r, KELEM_A,
-							KATTR_HREF, filepath,
-							KATTR__MAX);
-						khtml_elem(&r, KELEM_DIV);
-						khtml_puts(&r, de->d_name);
-						khtml_closeelem(&r, 1);
-
-						sprintf(buf, doc_path, filepath);
-						khtml_elem(&r, KELEM_BR);
-						khtml_elem(&r, KELEM_DIV);
-						if (access(buf, F_OK) != -1) {
-							fp = fopen(buf, "r");
-							read_md(&r, fp);
-							fclose(fp);
-						} else
-							khtml_puts(&r, "No description found");
-						khtml_closeelem(&r, 1);
-					}
-				}
-			}
+			req.path == NULL ||
+			req.path[0] == '\0') {
+			sendindex(&r, req.page, ppath);
 		} else if (req.fieldmap[KEY_FILE] != NULL) {
 			strlcpy(buf, req.fieldmap[KEY_FILE]->parsed.s, sizeof(buf));
 			send_ppath(&r, req.page, req.path, buf);
