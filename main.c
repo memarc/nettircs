@@ -8,19 +8,12 @@
 #include <stdio.h> /* sprintf */
 #include <sys/stat.h> /* stat */
 
-#include <dirent.h> /* opendir */
-
 #include <kcgi.h>
 #include <kcgihtml.h>
 
 #include "global.h"
 #include "page.h"
 #include "config.h"
-
-enum	key {
-	KEY_FILE,
-	KEY__MAX
-};
 
 static const struct kvalid keys[KEY__MAX] = {
 	{ kvalid_stringne, "file" },
@@ -145,17 +138,6 @@ main(void)
 	struct khtmlreq	r;
 	enum khttp er;
 	char ppath[255];
-	struct dirent *de;
-	DIR *dir;
-	// read file
-	char filepath[255];
-	char buf[255];
-	char date[21];
-	int yr, mo, day, hr, min, sec;
-	int b;
-	char c;
-	FILE *fp;
-	char cmd[512];
 
 	// pledges required for kcgi init
 	if (pledge("stdio exec proc rpath cpath", NULL) == -1)
@@ -194,217 +176,12 @@ main(void)
 		sendheader(&r, req.page);
 		if (req.page == PAGE_INDEX ||
 			req.path == NULL ||
-			req.path[0] == '\0') {
+			req.path[0] == '\0')
 			sendindex(&r, req.page, ppath);
-		} else if (req.fieldmap[KEY_FILE] != NULL) {
-			strlcpy(buf, req.fieldmap[KEY_FILE]->parsed.s, sizeof(buf));
-			send_ppath(&r, req.page, req.path, buf);
-			sprintf(filepath, "%s/%s/RCS/%s", ppath, req.path, buf);
-			if (access(filepath, F_OK) != -1) {
-				sprintf(cmd, "rlog -r: %s", filepath);
-				fp = popen(cmd, "r");
-				if (fp == NULL)
-					khtml_printf(&r, "Couldn't open \"%s\"", filepath);
-				else {
-					while (fgets(buf, sizeof(buf), fp) != NULL)
-						if (buf[0] == '-')
-							break;
-					// print info on each version
-					khtml_elem(&r, KELEM_TABLE);
-					khtml_elem(&r, KELEM_TR);
-					khtml_elem(&r, KELEM_TH);
-					khtml_puts(&r, "Rev");
-					khtml_closeelem(&r, 1);
-					khtml_elem(&r, KELEM_TH);
-					khtml_puts(&r, "Date");
-					khtml_closeelem(&r, 1);
-					khtml_elem(&r, KELEM_TH);
-					khtml_puts(&r, "Submitter");
-					khtml_closeelem(&r, 1);
-					khtml_elem(&r, KELEM_TH);
-					khtml_puts(&r, "Lines");
-					khtml_closeelem(&r, 1);
-					khtml_elem(&r, KELEM_TH);
-					khtml_puts(&r, "Description");
-					khtml_closeelem(&r, 2);
-					while (fscanf(fp, "%s", buf) > 0) {
-						khtml_elem(&r, KELEM_TR);
-						khtml_elem(&r, KELEM_TD);
-						// First line is revision number
-						fscanf(fp, "%s\n", buf);
-						khtml_puts(&r, buf);
-						khtml_closeelem(&r, 1);
-
-						// all these fscanfs remove labels
-						fscanf(fp, "%s", buf);
-						khtml_elem(&r, KELEM_TD);
-						c = getc(fp);
-						while (c != ';') {
-							khtml_putc(&r, c);
-							c = getc(fp);
-						}
-						khtml_closeelem(&r, 1);
-
-						// and reading until the ';' means you get the data
-						// but not the pesky ';'
-						fscanf(fp, "%s", buf);
-						khtml_elem(&r, KELEM_TD);
-						c = getc(fp);
-						while (c != ';') {
-							khtml_putc(&r, c);
-							c = getc(fp);
-						}
-						khtml_closeelem(&r, 1);
-
-						c = getc(fp);
-						while (c != ';')
-							c = getc(fp);
-						khtml_elem(&r, KELEM_TD);
-						c = getc(fp);
-						if (c != '\n') {
-							fscanf(fp, "%s", buf);
-							c = getc(fp);
-							while (c != ';') {
-								khtml_putc(&r, c);
-								c = getc(fp);
-							}
-						}
-						khtml_closeelem(&r, 1);
-
-						khtml_attr(&r, KELEM_TD,
-							KATTR_STYLE, "max-width: 300px;",
-							KATTR__MAX);
-						fgets(buf, sizeof(buf), fp);
-						while (buf[0] != '-' && buf[0] != '=') {
-							khtml_puts(&r, buf);
-							fgets(buf, sizeof(buf), fp);
-						}
-						khtml_closeelem(&r, 2);
-					}
-					khtml_closeelem(&r, 1);
-					pclose(fp);
-				}
-			}
-		} else {
-			send_ppath(&r, req.page, req.path, "");
-
-			sprintf(filepath, "/projects/%s/%s/%s.rcs.tar.gz",
-				pages[req.page], req.path, req.path);
-			khtml_attr(&r, KELEM_A, KATTR_HREF, filepath, KATTR__MAX);
-			khtml_ncr(&r, 0x2193); /* darr */
-			khtml_printf(&r, " %s.rcs.tar.gz", req.path);
-			khtml_closeelem(&r, 1); /* a */
-
-			sprintf(ppath, "%s/%s/RCS", ppath, req.path);
-
-			dir = opendir(ppath);
-			if (dir == NULL)
-				khtml_printf(&r, "Error: \"%s\" does not exist", ppath);
-			else {
-				khtml_elem(&r, KELEM_TABLE);
-				khtml_elem(&r, KELEM_THEAD);
-				khtml_elem(&r, KELEM_TH);
-				khtml_puts(&r, "File");
-				khtml_closeelem(&r, 1);
-				khtml_elem(&r, KELEM_TH);
-				khtml_puts(&r, "Revision");
-				khtml_closeelem(&r, 1);
-				khtml_elem(&r, KELEM_TH);
-				khtml_puts(&r, "Submitter");
-				khtml_closeelem(&r, 1);
-				khtml_elem(&r, KELEM_TH);
-				khtml_puts(&r, "Date");
-				khtml_closeelem(&r, 2);
-				while ((de = readdir(dir)) != NULL) {
-					if (de->d_name[0] != '.') {
-						khtml_elem(&r, KELEM_TR);
-						khtml_elem(&r, KELEM_TD);
-						sprintf(filepath, "?file=%s", de->d_name);
-						khtml_attr(&r, KELEM_A,
-							KATTR_HREF, filepath,
-							KATTR__MAX);
-						khtml_puts(&r, de->d_name);
-						khtml_closeelem(&r, 2);
-						khtml_elem(&r, KELEM_TD);
-
-						sprintf(filepath, "%s/%s",
-							ppath, de->d_name);
-						fp = fopen(filepath, "r");
-						memset(buf, '\0', sizeof(buf));
-						fgets(buf, sizeof(buf), fp);
-						for (b = 0; b < 255; b++)
-							if (buf[b] == ';') {
-								buf[b] = '\0';
-								break;
-							}
-						khtml_puts(&r, buf);
-						khtml_closeelem(&r, 1);
-						khtml_elem(&r, KELEM_TD);
-						while (strcmp(buf, "\n") != 0)
-							fgets(buf, sizeof(buf), fp);
-						fscanf(fp, " ");
-						fgets(buf, sizeof(buf), fp);
-						fscanf(fp, "date %d.%d.%d.%d.%d.%d;",
-							&yr, &mo, &day,
-							&hr, &min, &sec);
-						fscanf(fp, " author %s;", buf);
-						for (b = 0; b <= 21; b++)
-							if (date[b] == ';') {
-								date[b] = '\0';
-								break;
-							}
-						for (b = 0; b < 255; b++)
-							if (buf[b] == ';') {
-								buf[b] = '\0';
-								break;
-							}
-						khtml_puts(&r, buf);
-						khtml_closeelem(&r, 1);
-						khtml_elem(&r, KELEM_TD);
-						khtml_printf(&r, "%d-%02d-%02d ",
-							yr, mo, day);
-						khtml_attr(&r, KELEM_SPAN,
-							KATTR_CLASS, "time",
-							KATTR__MAX);
-						khtml_printf(&r, " %02d:%02d.%02d",
-							hr, min, sec);
-						fclose(fp);
-						khtml_closeelem(&r, 3);
-					}
-				}
-				khtml_closeelem(&r, 1); /* table */
-				sprintf(filepath, "%s%s/%s/RCS/README.md,v",
-					project_path, pages[req.page], req.path);
-				if (access(filepath, F_OK) != -1) {
-					sprintf(cmd, "/bin/co -p %s", filepath);
-					fp = popen(cmd, "r");
-					if (fp == NULL)
-						khtml_printf(&r, "Couldn't execute \"%s\"", cmd);
-					else {
-						khtml_attr(&r, KELEM_H3, KATTR_CLASS, "readmetitle", KATTR__MAX);
-						khtml_puts(&r, "README.md:");
-						khtml_closeelem(&r, 1);
-						khtml_attr(&r, KELEM_DIV, KATTR_CLASS, "readme", KATTR__MAX);
-						read_md(&r, fp);
-						khtml_closeelem(&r, 1);
-						pclose(fp);
-					} 
-				}
-
-				khtml_elem(&r, KELEM_P);
-				khtml_puts(&r, "Assuming you own this "
-					"reopsitory, to upload your "
-					"RCS directory, type:");
-				khtml_closeelem(&r, 1);
-				khtml_elem(&r, KELEM_CODE);
-				khtml_elem(&r, KELEM_PRE);
-				khtml_puts(&r, "scp -r RCS "
-					"rcs.yksinotso.org:/tmp/RCS\n");
-				khtml_printf(&r, "ssh rcs.yksinotso.org"
-					" ~/bin/nettircs.sh /tmp/RCS %s %s",
-					pages[req.page], req.path);
-			}
-		}
+		else if (req.fieldmap[KEY_FILE] != NULL)
+			sendfile(&r, &req, ppath);
+		else
+			senddirlist(&r, &req, ppath);
 		khtml_close(&r); /* all scopes */
 	}
 
