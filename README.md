@@ -4,8 +4,9 @@ A program for displaying RCS projects on the netti.
 
 ###Dependencies
 
--RCS (optional for the web app actually, but necessary for the helper
-script)
+-RCS (for the web app, it will need to be statically linked and placed
+in your web directories /bin/)
+-sh (again, in web directories /bin/. This is needed for popen)
 -[kcgi](https://kristaps.bsd.lv/kcgi/)
 -pkg-config (or edit *config.mk* to point at the libraries manually)
 
