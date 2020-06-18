@@ -28,7 +28,11 @@ senderror(struct khtmlreq * r, enum khttp http)
 }
 
 void
-send_ptitle(struct khtmlreq * r, int p, char * proj, char * file)
+send_ptitle(struct khtmlreq * r,
+	int p,
+	const char * proj,
+	const char * file,
+	const char * rev)
 {
 	char url[255];
 	khtml_elem(r, KELEM_H3);
@@ -48,6 +52,14 @@ send_ptitle(struct khtmlreq * r, int p, char * proj, char * file)
 		khtml_puts(r, "?file=");
 		khtml_attr(r, KELEM_A, KATTR_HREF, url, KATTR__MAX);
 		khtml_puts(r, file);
+		khtml_closeelem(r, 1); /* a */
+	}
+	if (strcmp(rev, "") != 0) {
+		strlcat(url, "&rev=", sizeof(url));
+		strlcat(url, rev, sizeof(url));
+		khtml_puts(r, "&rev=");
+		khtml_attr(r, KELEM_A, KATTR_HREF, url, KATTR__MAX);
+		khtml_puts(r, rev);
 		khtml_closeelem(r, 1); /* a */
 	}
 	khtml_closeelem(r, 1); /* h3 */
@@ -114,14 +126,32 @@ sendfile(struct khtmlreq * r, struct kreq * req, const char * ppath)
 {
 	FILE * fp;
 	char buf[255];
+	char file[255];
+	char rev[255];
 	char filepath[255];
 	char cmd[512];
 	char c;
 
-	strlcpy(buf, req->fieldmap[KEY_FILE]->parsed.s, sizeof(buf));
-	send_ptitle(r, req->page, req->path, buf);
-	sprintf(filepath, "%s/%s/RCS/%s", ppath, req->path, buf);
+	if (req->fieldmap[KEY_REV] != NULL) {
+		strlcpy(rev,
+			req->fieldmap[KEY_REV]->parsed.s,
+			sizeof(rev));
+	} else
+		rev[0] = '\0';
+	strlcpy(file, req->fieldmap[KEY_FILE]->parsed.s, sizeof(file));
+	sprintf(filepath, "%s/%s/RCS/%s", ppath, req->path, file);
+	send_ptitle(r, req->page, req->path, file, rev);
 	if (access(filepath, F_OK) != -1) {
+		if (strcmp(rev, "") != 0) {
+			sprintf(cmd, "co -p -r%s %s", rev, filepath);
+			fp = popen(cmd, "r");
+			khtml_elem(r, KELEM_CODE);
+			khtml_elem(r, KELEM_PRE);
+			while (fgets(buf, sizeof(buf), fp) != NULL)
+				khtml_puts(r, buf);
+			pclose(fp);
+			return;
+		}
 		sprintf(cmd, "rlog -r: %s", filepath);
 		fp = popen(cmd, "r");
 		if (fp == NULL)
@@ -153,8 +183,13 @@ sendfile(struct khtmlreq * r, struct kreq * req, const char * ppath)
 				khtml_elem(r, KELEM_TD);
 				// First line is revision number
 				fscanf(fp, "%s\n", buf);
+				sprintf(filepath, "?file=%s&rev=%s",
+					file, buf);
+				khtml_attr(r, KELEM_A,
+					KATTR_HREF, filepath,
+					KATTR__MAX);
 				khtml_puts(r, buf);
-				khtml_closeelem(r, 1);
+				khtml_closeelem(r, 2);
 
 				// all these fscanfs remove labels
 				fscanf(fp, "%s", buf);
@@ -222,7 +257,7 @@ senddirlist(struct khtmlreq * r, struct kreq * req, const char * ppath)
 	char filepath[255];
 	char projectpath[255];
 
-	send_ptitle(r, req->page, req->path, "");
+	send_ptitle(r, req->page, req->path, "", "");
 	sprintf(filepath, "/projects/%s/%s/%s.rcs.tar.gz",
 		pages[req->page], req->path, req->path);
 	khtml_attr(r, KELEM_A, KATTR_HREF, filepath, KATTR__MAX);

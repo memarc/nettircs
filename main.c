@@ -17,6 +17,7 @@
 
 static const struct kvalid keys[KEY__MAX] = {
 	{ kvalid_stringne, "file" },
+	{ kvalid_stringne, "rev" },
 };
 
 

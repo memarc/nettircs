@@ -3,6 +3,7 @@
 
 enum	key {
 	KEY_FILE,
+	KEY_REV,
 	KEY__MAX
 };
 
