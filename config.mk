@@ -1,4 +1,4 @@
-VERSION=0.5
+VERSION=1.0
 # Customize below to fit your system
 
 # paths
